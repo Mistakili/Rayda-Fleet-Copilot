@@ -44,7 +44,10 @@ def _coverage(history: list[Snapshot]) -> dict[str, Any]:
         ),
         "network_reported": sum(isinstance(s.raw.get("network"), list) for s in history),
         "memory_valid": sum(_valid_memory(s) for s in history),
-        "disk_reported": sum(bool(s.disk_volumes) for s in history),
+        "disk_reported": sum(
+            any(_valid_disk_volume(volume) for volume in s.disk_volumes)
+            for s in history
+        ),
         "compliance_reported": sum(isinstance(s.raw.get("compliance_results"), list) for s in history),
         "os_reported": sum(isinstance(s.raw.get("os"), dict) and bool(s.raw.get("os")) for s in history),
     }
