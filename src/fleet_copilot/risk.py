@@ -80,7 +80,7 @@ def device_attention_register(
     for item in current_compliance:
         compliance_by_device.setdefault(item["device_id"], []).append(item)
     for finding in history_findings:
-        device_id = finding.get("device_id")
+        device_id = finding.get("device_id") or finding.get("trend", {}).get("end_evidence", {}).get("device_id")
         if device_id:
             history_by_device.setdefault(device_id, []).append(finding)
 
