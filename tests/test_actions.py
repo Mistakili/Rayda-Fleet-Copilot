@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import pytest
 from fleet_copilot.actions import ActionStore, ActionError
 
@@ -107,3 +108,13 @@ def test_proposal_evidence_is_preserved_and_tampering_invalidates_approval():
     assert store.get_proposal(proposal["proposal_id"], "acme")["status"] == "pending"
     assert store.audit_events("acme")[-1]["event"] == "proposal_integrity_check_failed"
 
+
+
+def test_action_store_supports_access_from_another_thread():
+    store = ActionStore()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        proposal = pool.submit(make_proposal, store).result()
+        events = pool.submit(store.audit_events, "acme").result()
+    assert proposal["status"] == "pending"
+    assert events[0]["event"] == "proposal_created"
+    assert store.get_proposal(proposal["proposal_id"], "acme")["status"] == "pending"
