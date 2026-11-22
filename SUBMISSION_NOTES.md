@@ -6,7 +6,7 @@ Use this as a concise guide for the assessment walkthrough and technical discuss
 
 Rayda Fleet Copilot turns a stream of device telemetry into tenant-scoped fleet investigations and reviewable operational proposals. It ingests NDJSON snapshots, validates required identity and timestamp fields, separates missing telemetry from measured failures, and supports current-state queries plus historical trend detection.
 
-The copilot uses an explicit, bounded planner/tool loop. Each tool receives the company scope from application context, returns structured observations with source evidence, and contributes to an execution trace. A separate attention register combines current compliance and storage issues with historical indicators using transparent, explainable heuristics.
+The copilot uses an explicit, bounded planner/tool loop. Each tool receives the company scope supplied by the application, returns structured observations with source evidence, and contributes to an execution trace. A separate attention register combines current compliance and storage issues with historical indicators using transparent, explainable heuristics.
 
 For operational follow-through, the prototype supports four action types. A proposal is tied to tenant, device, timestamp and the source telemetry snapshot. A separate approver must approve it; proposal contents are integrity-checked before a simulated execution is recorded. Events are written to a tenant-scoped SQLite audit log. No external system is contacted.
 
@@ -15,7 +15,7 @@ For operational follow-through, the prototype supports four action types. A prop
 1. **Ingestion — `data.py`:** strict NDJSON parsing into snapshot records; tenant-scoped latest-state queries and telemetry quality reporting.
 2. **Analysis — `insights.py`:** historical battery, memory, storage and compliance-drift indicators with supporting observations and evidence-quality labels.
 3. **Prioritisation — `risk.py`:** explainable device attention score, issue breakdown and telemetry coverage. This is a prototype triage heuristic, not a calibrated probability or company policy.
-4. **Agent loop — `agent.py`:** deterministic intent planner, allowlisted tool execution, authenticated tenant context, bounded steps and trace.
+4. **Agent loop — `agent.py`:** deterministic intent planner, allowlisted tool execution, application-supplied tenant scope, bounded steps and trace.
 5. **Actions — `actions.py`:** evidence-gated proposals, separate approval, integrity digest, simulated execution and audit events.
 6. **Evaluation — `evals.py` and `tests/`:** dataset-grounded regression counts, tenant-scope checks and unit tests.
 7. **Interface — `app.py`:** Streamlit overview, device inspection, copilot, insights and action approval center.
@@ -32,7 +32,7 @@ No. It is an assessment prototype demonstrating the data, tool, evidence, approv
 
 ### How is tenant isolation enforced?
 
-The application supplies the authenticated company context to the agent and every tool. The planner does not generate or override that scope. Data queries filter by that company, action proposals validate evidence company IDs, and proposal/audit reads are scoped. The Streamlit tenant selector is only a local demo input; it is not production authentication.
+The application supplies the company scope to the agent and every tool; the planner does not generate or override it. In this assessment demo, the Streamlit tenant selector is the source of that scope and is only a local demo input, not production authentication. Data queries filter by the selected company, action proposals validate evidence company IDs, and proposal/audit reads are scoped. In production, the company scope must come from verified user authentication and authorization.
 
 ### What happens when telemetry is missing or invalid?
 
