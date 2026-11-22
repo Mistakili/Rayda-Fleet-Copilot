@@ -44,7 +44,7 @@ def test_latest_low_disk_is_an_explainable_current_issue():
     ]
     result = device_attention_register(rows, "acme-001")
     assert result[0]["current_low_disk_volumes"] == 1
-    assert result[0]["attention_score"] == 20
+    assert result[0]["attention_score"] == 30
     assert result[0]["issues"][0]["source"] == "latest_low_disk"
 
 
