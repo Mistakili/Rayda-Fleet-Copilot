@@ -6,6 +6,7 @@ Callers may override them when a tenant policy is available.
 from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime
+from math import isfinite
 from statistics import mean
 from typing import Any, Iterable
 from .data import Snapshot
@@ -53,8 +54,10 @@ def memory_insights(snapshots: Iterable[Snapshot], company_id: str, high_utiliza
         values=[]
         for s in history:
             mem=s.memory; total,used=mem.get("total_memory_bytes"),mem.get("used_memory_bytes")
-            if isinstance(total,(int,float)) and total>0 and isinstance(used,(int,float)): values.append((s,used/total*100))
-        if not values: continue
+            if (isinstance(total,(int,float)) and isfinite(total) and total>0
+                    and isinstance(used,(int,float)) and isfinite(used) and 0<=used<=total):
+                values.append((s,used/total*100))
+        if len(values)<2: continue
         high=[(s,pct) for s,pct in values if pct>=high_utilization_pct]; rate=len(high)/len(values)*100
         if rate>=persistence_pct:
             findings.append({"type":"persistent_ram_pressure","severity":"review",
@@ -73,9 +76,12 @@ def storage_insights(snapshots: Iterable[Snapshot], company_id: str, low_free_pc
         for s in history:
             for volume in s.disk_volumes:
                 size,available=volume.get("size_bytes"),volume.get("available_bytes"); name=str(volume.get("volume_name","unknown"))
-                if isinstance(size,(int,float)) and size>0 and isinstance(available,(int,float)):
-                    volumes[name].append((s,max(0.0,min(100.0,available/size*100))))
+                if (isinstance(size,(int,float)) and isfinite(size) and size>0
+                        and isinstance(available,(int,float)) and isfinite(available)
+                        and 0<=available<=size):
+                    volumes[name].append((s,available/size*100))
         for name,values in volumes.items():
+            if len(values)<2: continue
             low=[(s,pct) for s,pct in values if pct<=low_free_pct]; rate=len(low)/len(values)*100 if values else 0
             if values and rate>=persistence_pct:
                 findings.append({"type":"persistent_low_storage","severity":"review",
