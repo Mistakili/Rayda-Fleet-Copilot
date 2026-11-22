@@ -21,6 +21,7 @@ from fleet_copilot.data import (
     low_disk_devices,
 )
 from fleet_copilot.insights import all_insights
+from fleet_copilot.risk import device_attention_register
 
 st.set_page_config(
     page_title="Rayda | Fleet Copilot",
@@ -92,6 +93,7 @@ tenant_latest = latest_by_device(snapshots, company)
 tenant_disk = low_disk_devices(snapshots, company)
 tenant_compliance = compliance_failures(snapshots, company)
 tenant_insights = all_insights(snapshots, company)
+tenant_attention = device_attention_register(snapshots, company)
 battery_flags = [x for x in tenant_insights if x["type"] == "battery_capacity_decline"]
 ram_flags = [x for x in tenant_insights if x["type"] == "persistent_ram_pressure"]
 storage_flags = [x for x in tenant_insights if x["type"] == "persistent_low_storage"]
@@ -133,6 +135,17 @@ with overview:
         st.metric("Compliance drift events",len(drift_flags))
         st.metric("Battery capacity decline",len(battery_flags))
         st.caption("Historical indicators use available snapshots only. Missing telemetry is not treated as a failure.")
+    st.subheader("Device attention queue")
+    st.caption("Transparent prototype triage score from current compliance failures, latest low-disk readings and historical indicators. Not Rayda-approved policy. Missing or invalid telemetry affects coverage only; it never adds score.")
+    attention_rows = [{"Device": x["device_id"], "Employee": x["employee_id"], "Attention band": x["attention_band"].replace("_", " ").title(), "Heuristic score": x["attention_score"], "Compliance failures": x["current_compliance_failures"], "Low-disk volumes": x["current_low_disk_volumes"], "Historical indicators": x["historical_indicator_count"], "Assessment coverage %": x["assessment_coverage"]["coverage_pct"]} for x in tenant_attention]
+    st.dataframe(pd.DataFrame(attention_rows), use_container_width=True, hide_index=True)
+    with st.expander("How attention scoring works"):
+        st.markdown("- Latest high/medium/low compliance failures: 30/20/10 points each, capped at 60.")
+        st.markdown("- Each latest low-disk volume: 20 points, capped at 40.")
+        st.markdown("- Historical battery decline, persistent RAM pressure, persistent low storage and compliance drift: 10/15/10/10 points per finding.")
+        st.markdown("- Total capped at 100. Bands: high attention (50+), elevated (25–49), review (1–24), no detected issue (0).")
+        st.markdown("- A zero-score device with under 60% assessment coverage is labelled assessment limited, not healthy.")
+        st.caption("Heuristics are not calibrated probabilities, causal diagnoses or production policy.")
     st.subheader("Compliance checks")
     check_counts={}
     for item in tenant_latest:
