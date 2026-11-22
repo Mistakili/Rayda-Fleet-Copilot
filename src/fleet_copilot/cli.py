@@ -4,6 +4,7 @@ from pathlib import Path
 from .data import load_snapshots, dataset_profile, telemetry_quality_report
 from .agent import FleetAgent
 from .evals import run_evaluations
+from .risk import device_attention_register
 
 def main():
     parser=argparse.ArgumentParser(description="Rayda Fleet Copilot")
@@ -13,11 +14,14 @@ def main():
     quality=sub.add_parser("quality", help="Report telemetry coverage and validity")
     quality.add_argument("--company", help="Optional tenant scope")
     ask=sub.add_parser("ask"); ask.add_argument("--company",required=True); ask.add_argument("question")
+    attention=sub.add_parser("attention", help="Rank devices for human review using explainable prototype heuristics")
+    attention.add_argument("--company",required=True, help="Tenant/company ID")
     sub.add_parser("eval")
     args=parser.parse_args()
     snapshots=load_snapshots(args.data)
     if args.command=="profile": print(json.dumps(dataset_profile(snapshots),indent=2,default=str))
     elif args.command=="quality": print(json.dumps(telemetry_quality_report(snapshots,args.company),indent=2,default=str))
+    elif args.command=="attention": print(json.dumps(device_attention_register(snapshots,args.company),indent=2,default=str))
     elif args.command=="ask":
         state=FleetAgent(snapshots).invoke(args.question,args.company)
         print(state.answer); print(json.dumps({"plan":state.plan,"observations":state.observations},indent=2,default=str))
