@@ -9,3 +9,5 @@ venv/
 .env.*
 !.env.example
 .DS_Store
+
+*.egg-info/
