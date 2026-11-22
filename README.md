@@ -3,7 +3,7 @@
 A tenant-scoped fleet intelligence prototype built against the supplied NDJSON telemetry dataset.
 
 ## Implemented
-- Strict NDJSON ingestion and dataset profiling
+- Strict NDJSON ingestion, dataset profiling and telemetry quality/coverage reporting
 - Latest-snapshot disk and compliance queries
 - Historical battery, RAM, storage and compliance-drift insights
 - Explicit bounded agent planning/tool loop with execution trace
@@ -35,6 +35,8 @@ pip install -e ".[test,demo]"
 ## Run
 ```bash
 fleet-copilot --data data/device-telemetry-dataset.ndjson profile
+fleet-copilot --data data/device-telemetry-dataset.ndjson quality
+fleet-copilot --data data/device-telemetry-dataset.ndjson quality --company acme-001
 fleet-copilot --data data/device-telemetry-dataset.ndjson ask --company acme-001 "Which devices have low disk space?"
 fleet-copilot --data data/device-telemetry-dataset.ndjson eval
 streamlit run app.py
@@ -43,7 +45,7 @@ streamlit run app.py
 Alternatively, run commands with `python -m fleet_copilot.cli` from the project root after installing editable.
 
 ## Architecture
-- `data.py`: strict parsing and tenant-scoped deterministic queries
+- `data.py`: strict parsing, tenant-scoped deterministic queries and telemetry quality reporting
 - `insights.py`: historical trend detection and evidence
 - `actions.py`: proposal/approval/audit store; simulated side effects only
 - `agent.py`: explicit plan → tool call → observation loop with a hard step bound
