@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from fleet_copilot.data import Snapshot, load_snapshots, dataset_profile, latest_by_device, low_disk_devices, compliance_failures
+from fleet_copilot.data import Snapshot, load_snapshots, dataset_profile, latest_by_device, low_disk_devices, compliance_failures, telemetry_quality_report
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "device-telemetry-dataset.ndjson"
 
@@ -47,3 +47,23 @@ def test_low_disk_ignores_non_finite_and_impossible_measurements():
     findings = low_disk_devices(rows, "acme-001")
     assert len(findings) == 1
     assert findings[0]["volume"] == "valid"
+
+
+def test_telemetry_quality_report_distinguishes_missing_and_invalid():
+    rows = load_snapshots(DATA)
+    report = telemetry_quality_report(rows)
+    assert report["snapshots"] == 750
+    assert report["fields"]["battery_capacity"]["missing"] == 100
+    assert report["fields"]["battery_capacity"]["available"] == 650
+    assert report["fields"]["network"]["missing"] == 16
+    assert report["fields"]["memory_utilization"]["available"] == 750
+    assert report["fields"]["disk_volumes"]["valid_volumes"] == 750
+    assert "Missing telemetry is unknown, not a compliance failure." in report["notes"]
+
+
+def test_telemetry_quality_report_can_be_tenant_scoped():
+    rows = load_snapshots(DATA)
+    report = telemetry_quality_report(rows, "acme-001")
+    assert report["company_id"] == "acme-001"
+    assert report["snapshots"] == 300
+    assert report["fields"]["battery_capacity"]["missing"] == 37
