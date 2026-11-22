@@ -57,3 +57,25 @@ def test_out_of_range_memory_and_storage_measurements_are_handled_safely():
     findings = storage_insights(rows, "acme-001")
     assert len(findings) == 1
     assert findings[0]["observations"] == 2
+
+
+
+def test_battery_trend_ignores_non_finite_capacity_values():
+    rows = [
+        Snapshot("dev-3", "acme-001", "emp-3", "2026-06-01T00:00:00Z", {
+            "battery": {"full_charge_capacity": 100}
+        }),
+        Snapshot("dev-3", "acme-001", "emp-3", "2026-06-02T00:00:00Z", {
+            "battery": {"full_charge_capacity": float("nan")}
+        }),
+        Snapshot("dev-3", "acme-001", "emp-3", "2026-06-03T00:00:00Z", {
+            "battery": {"full_charge_capacity": float("inf")}
+        }),
+        Snapshot("dev-3", "acme-001", "emp-3", "2026-06-04T00:00:00Z", {
+            "battery": {"full_charge_capacity": 80}
+        }),
+    ]
+    findings = battery_insights(rows, "acme-001")
+    assert len(findings) == 1
+    assert findings[0]["trend"]["observations"] == 2
+    assert findings[0]["trend"]["change"] == -20
