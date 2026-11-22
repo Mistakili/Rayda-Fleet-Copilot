@@ -111,3 +111,67 @@ def dataset_profile(snapshots: list[Snapshot]) -> dict[str, Any]:
         "missing_battery": sum("battery" not in s.raw for s in snapshots),
         "missing_network": sum("network" not in s.raw for s in snapshots),
     }
+
+
+def telemetry_quality_report(snapshots: Iterable[Snapshot], company_id: str | None = None) -> dict[str, Any]:
+    """Report telemetry coverage and basic validity; absence is not a failure."""
+    rows = [s for s in snapshots if company_id is None or s.company_id == company_id]
+    total = len(rows)
+
+    def summary(available: int, invalid: int = 0) -> dict[str, Any]:
+        return {
+            "available": available,
+            "missing": max(total - available - invalid, 0),
+            "invalid": invalid,
+            "coverage_pct": round(available / total * 100, 1) if total else 0.0,
+        }
+
+    battery_present = [s for s in rows if s.battery is not None]
+    battery_valid = sum(
+        isinstance(s.battery.get("full_charge_capacity"), (int, float))
+        and isfinite(s.battery["full_charge_capacity"])
+        and s.battery["full_charge_capacity"] > 0
+        for s in battery_present
+    )
+    network_present = sum(isinstance(s.raw.get("network"), list) for s in rows)
+    memory_present = [s for s in rows if isinstance(s.raw.get("memory"), dict)]
+    memory_valid = sum(
+        isinstance(s.memory.get("total_memory_bytes"), (int, float))
+        and isfinite(s.memory["total_memory_bytes"]) and s.memory["total_memory_bytes"] > 0
+        and isinstance(s.memory.get("used_memory_bytes"), (int, float))
+        and isfinite(s.memory["used_memory_bytes"])
+        and 0 <= s.memory["used_memory_bytes"] <= s.memory["total_memory_bytes"]
+        for s in memory_present
+    )
+    disk_volumes = [v for s in rows for v in s.disk_volumes]
+    valid_volumes = sum(
+        isinstance(v.get("size_bytes"), (int, float)) and isfinite(v["size_bytes"]) and v["size_bytes"] > 0
+        and isinstance(v.get("available_bytes"), (int, float)) and isfinite(v["available_bytes"])
+        and 0 <= v["available_bytes"] <= v["size_bytes"]
+        for v in disk_volumes
+    )
+    compliance_present = sum(isinstance(s.raw.get("compliance_results"), list) for s in rows)
+    os_present = sum(isinstance(s.raw.get("os"), dict) and bool(s.raw.get("os")) for s in rows)
+
+    return {
+        "company_id": company_id,
+        "snapshots": total,
+        "fields": {
+            "battery_capacity": summary(battery_valid, len(battery_present) - battery_valid),
+            "network": summary(network_present),
+            "memory_utilization": summary(memory_valid, len(memory_present) - memory_valid),
+            "disk_volumes": {
+                "reported_volumes": len(disk_volumes),
+                "valid_volumes": valid_volumes,
+                "invalid_volumes": len(disk_volumes) - valid_volumes,
+                "validity_pct": round(valid_volumes / len(disk_volumes) * 100, 1) if disk_volumes else 0.0,
+            },
+            "compliance_results": summary(compliance_present),
+            "os": summary(os_present),
+        },
+        "notes": [
+            "Missing telemetry is unknown, not a compliance failure.",
+            "Network coverage measures whether a network field was reported, not network health.",
+            "Disk volume counts are volume-level; other coverage counts are snapshot-level.",
+        ],
+    }
