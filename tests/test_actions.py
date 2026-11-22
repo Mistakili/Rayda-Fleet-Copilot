@@ -1,7 +1,7 @@
 import pytest
 from fleet_copilot.actions import ActionStore, ActionError
 
-EVIDENCE = [{"device_id": "dev-1", "collected_at": "2026-06-12T10:00:00Z", "free_pct": 4.2}]
+EVIDENCE = [{"company_id": "acme", "device_id": "dev-1", "collected_at": "2026-06-12T10:00:00Z", "free_pct": 4.2}]
 
 
 def make_proposal(store, **overrides):
@@ -25,7 +25,11 @@ def test_action_requires_provenance_and_explicit_approval():
     with pytest.raises(ActionError, match="without evidence"):
         make_proposal(store, evidence=[])
     with pytest.raises(ActionError, match="provenance"):
-        make_proposal(store, evidence=[{"reference": "typed-by-user"}])
+        make_proposal(store, evidence=[{"device_id": "dev-1", "collected_at": "2026-06-12T10:00:00Z"}])
+    with pytest.raises(ActionError, match="different company"):
+        make_proposal(store, evidence=[{**EVIDENCE[0], "company_id": "globex"}])
+    with pytest.raises(ActionError, match="does not match"):
+        make_proposal(store, payload={"target_device_id": "dev-2"})
     proposal = make_proposal(store)
     assert proposal["status"] == "pending"
     result = approve(store, proposal)
