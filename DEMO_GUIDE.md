@@ -79,7 +79,7 @@ The sidebar tenant selector is a local demo control. It is not production authen
 2. **Grounded copilot query:** ask, "Which devices have low disk space?" Inspect the selected plan, tool result and returned evidence.
 3. **Historical insights:** review battery, RAM, storage and compliance-drift findings. Distinguish historical observations from the latest device snapshot.
 4. **Attention ranking:** open a high-attention device and explain which current and historical findings contributed to its score. The score is a transparent prototype triage heuristic, not a calibrated probability or Rayda-approved policy.
-5. **Action proposal:** open the action approval center, choose a device and action, enter a reason, and create a pending proposal.
+5. **Action proposal:** open the action approval center, choose a device and action, enter a reason, and create a pending proposal. Expand **Review attached source evidence** to inspect the exact source telemetry snapshot bound to that proposal.
 6. **Approval boundary:** first try approver ID `demo-requester`; self-approval should be refused. Then use a different demo ID such as `demo-approver` with the `admin` or `fleet_manager` role to record a simulated execution.
 7. **Audit trail:** show the proposal and approval events in the selected tenant's audit trail. Switch tenants and verify that the other tenant's audit view does not show those events.
 
@@ -112,7 +112,7 @@ If `FLEET_ACTION_DB` is set, reset that configured database instead.
 - Missing telemetry is unknown, not a failure. Invalid measurements are excluded from relevant calculations and coverage.
 - The attention score is an illustrative heuristic for human triage, not a calibrated risk probability, causal diagnosis or Rayda policy.
 - The UI's tenant selector and typed approver identity/role are demo inputs, not production authentication or verified RBAC.
-- Approval is required before a simulated action is recorded. Proposal evidence is bound to tenant/device provenance and checked for mutation before approval.
+- Approval is required before a simulated action is recorded. Each dashboard proposal attaches the exact source telemetry snapshot plus tenant/device/timestamp provenance; the evidence is bound into the proposal integrity digest and checked for mutation before approval.
 - SQLite is used for a self-contained assessment prototype. A production deployment would need authenticated service boundaries, verified authorization, managed persistence, operational monitoring and real integrations.
 - The four evaluation cases are a focused regression benchmark, not comprehensive proof of production security or model quality.
 
