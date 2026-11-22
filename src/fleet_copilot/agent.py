@@ -17,6 +17,7 @@ class AgentState:
 class FleetTools:
     def __init__(self, snapshots: list[Snapshot]):
         self.snapshots = snapshots
+
     def execute(self, name: str, company_id: str) -> dict[str, Any]:
         # Every tool receives trusted company scope from the application context.
         if name == "low_disk":
@@ -37,34 +38,58 @@ class FleetTools:
 
 class FleetAgent:
     """A deterministic planner + explicit tool loop; no model/API key required."""
-    def __init__(self, snapshots: list[Snapshot], max_steps: int = 3):
+    def __init__(self, snapshots: list[Snapshot], max_steps: int = 4):
+        if max_steps < 1:
+            raise ValueError("max_steps must be at least 1")
         self.tools = FleetTools(snapshots)
         self.max_steps = max_steps
+
     def plan(self, question: str) -> list[str]:
         q = question.lower()
-        plan=[]
-        if any(k in q for k in ("disk", "storage", "space")): plan.append("low_disk")
-        if any(k in q for k in ("compliance", "compliant", "screen lock", "encryption")): plan.append("compliance_failures")
-        if any(k in q for k in ("battery", "capacity")): plan.append("battery_trends")
-        if any(k in q for k in ("ram", "memory")): plan.append("ram_trends")
+        plan = []
+        if any(k in q for k in ("disk", "storage", "space")):
+            plan.append("low_disk")
+        if any(k in q for k in ("compliance", "compliant", "screen lock", "encryption")):
+            plan.append("compliance_failures")
+        if any(k in q for k in ("battery", "capacity")):
+            plan.append("battery_trends")
+        if any(k in q for k in ("ram", "memory")):
+            plan.append("ram_trends")
         if any(k in q for k in ("trend", "persistent", "insight", "history")):
-            plan += ["battery_trends","ram_trends","storage_trends","compliance_drift"]
-        if not plan: plan=["low_disk","compliance_failures"]
+            plan.extend([
+                "battery_trends", "ram_trends", "storage_trends", "compliance_drift"
+            ])
+        if not plan:
+            plan = ["low_disk", "compliance_failures"]
+
+        # Preserve intent order, remove duplicates, and enforce the configured bound.
         return list(dict.fromkeys(plan))[:self.max_steps]
+
     def invoke(self, question: str, authenticated_company_id: str) -> AgentState:
-        if not authenticated_company_id: raise ValueError("Authenticated company context is required")
-        state=AgentState(question=question, company_id=authenticated_company_id)
-        state.plan=self.plan(question)
+        if not authenticated_company_id:
+            raise ValueError("Authenticated company context is required")
+        state = AgentState(question=question, company_id=authenticated_company_id)
+        state.plan = self.plan(question)
+
         # Explicit observe/act loop with bounded steps and recorded tool trace.
         for index, tool_name in enumerate(state.plan, start=1):
-            observation=self.tools.execute(tool_name, authenticated_company_id)
+            observation = self.tools.execute(tool_name, authenticated_company_id)
             state.observations.append(observation)
-            state.steps.append({"step":index,"decision":f"Call {tool_name}","observation_count":observation["count"]})
-        total=sum(x["count"] for x in state.observations)
-        sections=[]
-        for obs in state.observations:
-            sections.append(f'{obs["tool"]}: {obs["count"]} finding(s)')
-        state.answer=(f"I checked company {authenticated_company_id} using {len(state.steps)} tool call(s). "
-                      f"{total} result(s) returned. " + "; ".join(sections) +
-                      ". Results are scoped to the authenticated company. Review the evidence records before taking action.")
+            state.steps.append({
+                "step": index,
+                "decision": f"Call {tool_name}",
+                "observation_count": observation["count"],
+            })
+
+        total = sum(x["count"] for x in state.observations)
+        sections = [
+            f'{obs["tool"]}: {obs["count"]} finding(s)'
+            for obs in state.observations
+        ]
+        state.answer = (
+            f"I checked company {authenticated_company_id} using {len(state.steps)} tool call(s). "
+            f"{total} result(s) returned. " + "; ".join(sections) +
+            ". Results are scoped to the authenticated company. "
+            "Review the evidence records before taking action."
+        )
         return state
