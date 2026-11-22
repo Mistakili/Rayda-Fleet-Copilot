@@ -6,6 +6,7 @@ A tenant-scoped fleet intelligence prototype built against the supplied NDJSON t
 - Strict NDJSON ingestion, dataset profiling and telemetry quality/coverage reporting
 - Latest-snapshot disk and compliance queries
 - Historical battery, RAM, storage and compliance-drift insights
+- Explainable tenant-scoped device attention register combining latest-state issues, historical indicators and telemetry coverage
 - Explicit bounded agent planning/tool loop with execution trace
 - Tenant scope passed by trusted application context to every tool
 - Evidence-gated action proposals, explicit approval, simulated execution and audit log
@@ -47,10 +48,14 @@ Alternatively, run commands with `python -m fleet_copilot.cli` from the project 
 ## Architecture
 - `data.py`: strict parsing, tenant-scoped deterministic queries and telemetry quality reporting
 - `insights.py`: historical trend detection and evidence
+- `risk.py`: deterministic device attention ranking and per-device assessment coverage
 - `actions.py`: proposal/approval/audit store; simulated side effects only
 - `agent.py`: explicit plan → tool call → observation loop with a hard step bound
 - `evals.py`: small deterministic regression checks
 - `app.py`: optional Streamlit demonstration
+
+## Device attention ranking
+The optional dashboard queue uses an explicitly illustrative score: latest compliance failures contribute 30/20/10 points for high/medium/low severity (capped at 60); each latest low-disk volume contributes 20 (capped at 40); historical battery decline, persistent RAM pressure, persistent low storage and compliance drift contribute 10/15/10/10 points per finding. The total is capped at 100. Bands are high attention (50+), elevated (25–49), review (1–24), and no detected issue (0). A zero-score device with less than 60% telemetry assessment coverage is labelled assessment limited. Current and historical evidence can both contribute when they describe distinct time horizons; the score is a triage aid, not a calibrated probability, causal diagnosis or Rayda-approved policy. Missing/invalid telemetry never adds score.
 
 ## Grounding
 The agent calls deterministic tools. Tool results include company IDs, device IDs, timestamps and source measurements. The current prototype returns raw evidence records for inspection; production answers should render concise evidence citations linked to source snapshot IDs.
