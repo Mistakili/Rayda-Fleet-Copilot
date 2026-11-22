@@ -186,10 +186,11 @@ with copilot:
     if st.button("Run investigation",type="primary",disabled=not prompt.strip(),key="run_copilot"):
         state=FleetAgent(snapshots).invoke(prompt,company)
         st.session_state["last_agent_state"]={
+            "company_id":company,
             "answer":state.answer,"plan":state.plan,"steps":state.steps,"observations":state.observations
         }
     result=st.session_state.get("last_agent_state")
-    if result:
+    if result and result.get("company_id") == company:
         st.markdown("#### Investigation summary")
         st.info(result["answer"])
         st.markdown("#### Evidence returned")
