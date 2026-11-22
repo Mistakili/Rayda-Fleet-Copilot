@@ -239,7 +239,8 @@ with actions:
                 st.error("Add a reason before creating the proposal.")
             else:
                 evidence=[{"company_id":company,"device_id":target_item.device_id,"collected_at":target_item.collected_at,
-                           "employee_id":target_item.employee_id,"source":"latest_dataset_snapshot"}]
+                           "employee_id":target_item.employee_id,"source":"latest_dataset_snapshot",
+                           "snapshot":target_item.raw}]
                 payload={"target_device_id":target_item.device_id,"target_employee_id":target_item.employee_id,
                          "reason":reason.strip(),"source_snapshot_at":target_item.collected_at}
                 try:
@@ -259,6 +260,9 @@ with actions:
             st.write(f"**{row['action_type'].replace('_',' ').title()}** · {payload.get('target_device_id','')}")
             st.caption(f"Created {row['created_at']} by {row['created_by']}")
             st.write(payload.get("reason",""))
+            proposal_record=store.get_proposal(row["proposal_id"],company)
+            with st.expander("Review attached source evidence"):
+                st.json(proposal_record["evidence"])
             approver=st.text_input("Approver ID",value="demo-approver",key=f"approver_{row['proposal_id']}")
             role=st.selectbox("Approver role",["admin","fleet_manager","employee"],key=f"role_{row['proposal_id']}")
             if st.button("Approve & simulate",key=f"approve_{row['proposal_id']}"):
