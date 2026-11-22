@@ -4,6 +4,8 @@ Operational execution is simulated locally. No external systems are contacted.
 """
 from __future__ import annotations
 import hashlib, json, sqlite3, uuid
+from functools import wraps
+from threading import RLock
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,6 +19,14 @@ class ActionError(ValueError):
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+def _synchronized(method):
+    """Serialize access to a shared SQLite connection across Streamlit threads."""
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapper
+
 def _canonical_digest(*, proposal_id: str, company_id: str, action_type: str, payload_json: str, evidence_json: str) -> str:
     material = {"proposal_id": proposal_id, "company_id": company_id, "action_type": action_type,
                 "payload": json.loads(payload_json), "evidence": json.loads(evidence_json)}
@@ -25,7 +35,10 @@ def _canonical_digest(*, proposal_id: str, company_id: str, action_type: str, pa
 
 class ActionStore:
     def __init__(self, database: str | Path = ":memory:") -> None:
-        self.db = sqlite3.connect(str(database), timeout=10, isolation_level=None)
+        # Streamlit cache_resource can reuse this store from different script threads.
+        # Disable sqlite3 creator-thread checking and serialize public operations below.
+        self._lock = RLock()
+        self.db = sqlite3.connect(str(database), timeout=10, isolation_level=None, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.execute("""
@@ -60,6 +73,7 @@ class ActionStore:
         );
         """)
 
+    @_synchronized
     def propose(self, *, authenticated_company_id: str, actor_id: str, action_type: str,
                 payload: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any]:
         if action_type not in ALLOWED_ACTIONS:
@@ -93,6 +107,7 @@ class ActionStore:
             {"action_type": action_type, "evidence_count": len(evidence), "integrity_digest": digest})
         return self.get_proposal(proposal_id, authenticated_company_id)
 
+    @_synchronized
     def approve_and_execute(self, *, proposal_id: str, authenticated_company_id: str,
                             approver_id: str, approver_role: str) -> dict[str, Any]:
         if not approver_id or not authenticated_company_id:
@@ -132,6 +147,7 @@ class ActionStore:
             if self.db.in_transaction: self.db.rollback()
             raise
 
+    @_synchronized
     def get_proposal(self, proposal_id: str, authenticated_company_id: str) -> dict[str, Any]:
         row = self.db.execute("SELECT * FROM proposals WHERE proposal_id=? AND company_id=?", (proposal_id, authenticated_company_id)).fetchone()
         if row is None: raise ActionError("Proposal not found")
@@ -140,6 +156,7 @@ class ActionStore:
         result["evidence"] = json.loads(result.pop("evidence_json"))
         return result
 
+    @_synchronized
     def audit_events(self, authenticated_company_id: str) -> list[dict[str, Any]]:
         rows = self.db.execute("SELECT * FROM audit_log WHERE company_id=? ORDER BY audit_id", (authenticated_company_id,)).fetchall()
         result = []
