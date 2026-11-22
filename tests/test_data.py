@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from fleet_copilot.data import load_snapshots, dataset_profile, latest_by_device, low_disk_devices, compliance_failures
+from fleet_copilot.data import Snapshot, load_snapshots, dataset_profile, latest_by_device, low_disk_devices, compliance_failures
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "device-telemetry-dataset.ndjson"
 
@@ -29,3 +29,21 @@ def test_compliance_and_disk_tools_are_deterministic_and_scoped():
     assert all(x["company_id"] == "acme-001" for x in failures)
     low_disk = low_disk_devices(rows, "acme-001")
     assert all(x["company_id"] == "acme-001" for x in low_disk)
+
+
+
+def test_low_disk_ignores_non_finite_and_impossible_measurements():
+    rows = [
+        Snapshot("dev-1", "acme-001", "emp-1", "2026-06-01T00:00:00Z", {
+            "disk_volumes": [
+                {"volume_name": "nan", "size_bytes": 100, "available_bytes": float("nan")},
+                {"volume_name": "infinite", "size_bytes": 100, "available_bytes": float("inf")},
+                {"volume_name": "negative", "size_bytes": 100, "available_bytes": -1},
+                {"volume_name": "overfull", "size_bytes": 100, "available_bytes": 101},
+                {"volume_name": "valid", "size_bytes": 100, "available_bytes": 5},
+            ]
+        })
+    ]
+    findings = low_disk_devices(rows, "acme-001")
+    assert len(findings) == 1
+    assert findings[0]["volume"] == "valid"
