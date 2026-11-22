@@ -56,3 +56,4 @@ def test_invalid_measurements_are_not_scored_as_issues():
     result = device_attention_register(rows, "acme-001")
     assert result[0]["attention_score"] == 0
     assert result[0]["attention_band"] == "assessment_limited"
+    assert result[0]["assessment_coverage"]["signals"]["disk_reported"] == 0
