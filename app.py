@@ -225,7 +225,7 @@ with actions:
             if not reason.strip():
                 st.error("Add a reason before creating the proposal.")
             else:
-                evidence=[{"device_id":target_item.device_id,"collected_at":target_item.collected_at,
+                evidence=[{"company_id":company,"device_id":target_item.device_id,"collected_at":target_item.collected_at,
                            "employee_id":target_item.employee_id,"source":"latest_dataset_snapshot"}]
                 payload={"target_device_id":target_item.device_id,"target_employee_id":target_item.employee_id,
                          "reason":reason.strip(),"source_snapshot_at":target_item.collected_at}
