@@ -112,6 +112,45 @@ def compliance_drift_insights(snapshots: Iterable[Snapshot], company_id: str) ->
             "transitions":[{"from":{**_base(a[0]),"status":a[1]},"to":{**_base(b[0]),"status":b[1]}} for a,b in transitions]})
     return findings
 
+def _add_evidence_quality(finding: dict[str, Any]) -> dict[str, Any]:
+    """Attach transparent evidence-volume metadata; not statistical certainty."""
+    evidence = finding.get("evidence", [])
+    transitions = finding.get("transitions", [])
+    timestamps = [item["collected_at"] for item in evidence if item.get("collected_at")]
+    for transition in transitions:
+        for side in ("from", "to"):
+            item = transition.get(side, {})
+            if item.get("collected_at"):
+                timestamps.append(item["collected_at"])
+    observations = finding.get("observations")
+    if observations is None and finding.get("trend"):
+        observations = finding["trend"].get("observations")
+    if observations is None:
+        observations = len(set(timestamps))
+    unique_timestamps = sorted(set(timestamps), key=_time)
+    span_days = None
+    if len(unique_timestamps) >= 2:
+        span_days = round((_time(unique_timestamps[-1]) - _time(unique_timestamps[0])).total_seconds() / 86400, 1)
+    if observations >= 10 and span_days is not None and span_days >= 7:
+        level = "strong"
+    elif observations >= 4:
+        level = "moderate"
+    else:
+        level = "limited"
+    enriched = dict(finding)
+    enriched["evidence_quality"] = {
+        "valid_observations": observations,
+        "dated_evidence_points": len(unique_timestamps),
+        "dated_evidence_span_days": span_days,
+        "level": level,
+        "method": "Heuristic evidence-volume bands; not a probability, causal diagnosis, or Rayda policy.",
+    }
+    return enriched
+
+
 def all_insights(snapshots: Iterable[Snapshot], company_id: str) -> list[dict[str, Any]]:
-    data=list(snapshots)
-    return battery_insights(data,company_id)+memory_insights(data,company_id)+storage_insights(data,company_id)+compliance_drift_insights(data,company_id)
+    """Run all deterministic historical detectors and annotate evidence volume."""
+    data = list(snapshots)
+    findings = (battery_insights(data, company_id) + memory_insights(data, company_id) +
+                storage_insights(data, company_id) + compliance_drift_insights(data, company_id))
+    return [_add_evidence_quality(item) for item in findings]
