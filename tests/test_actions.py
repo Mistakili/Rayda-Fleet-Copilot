@@ -80,3 +80,30 @@ def test_proposal_tampering_invalidates_approval():
         approve(store, proposal)
     assert store.get_proposal(proposal["proposal_id"], "acme")["status"] == "pending"
     assert store.audit_events("acme")[-1]["event"] == "proposal_integrity_check_failed"
+
+def test_proposal_evidence_is_preserved_and_tampering_invalidates_approval():
+    store = ActionStore()
+    source = {
+        "company_id": "acme",
+        "device_id": "dev-1",
+        "collected_at": "2026-06-12T10:00:00Z",
+        "source": "latest_dataset_snapshot",
+        "snapshot": {
+            "battery": {"full_charge_capacity": 42000},
+            "disk_volumes": [{"volume_name": "C:", "size_bytes": 100, "available_bytes": 4}],
+        },
+    }
+    proposal = make_proposal(store, evidence=[source])
+    saved = store.get_proposal(proposal["proposal_id"], "acme")
+    assert saved["evidence"] == [source]
+
+    store.db.execute(
+        "UPDATE proposals SET evidence_json=? WHERE proposal_id=?",
+        ('[{"company_id":"acme","device_id":"dev-1","collected_at":"2026-06-12T10:00:00Z","snapshot":{"disk_volumes":[]}}]',
+         proposal["proposal_id"]),
+    )
+    with pytest.raises(ActionError, match="changed after creation"):
+        approve(store, proposal)
+    assert store.get_proposal(proposal["proposal_id"], "acme")["status"] == "pending"
+    assert store.audit_events("acme")[-1]["event"] == "proposal_integrity_check_failed"
+
