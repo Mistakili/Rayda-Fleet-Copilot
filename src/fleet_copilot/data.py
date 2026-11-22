@@ -1,6 +1,7 @@
 """Deterministic telemetry loading and querying for the Rayda Fleet Copilot."""
 from __future__ import annotations
 import json
+from math import isfinite
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -70,7 +71,9 @@ def low_disk_devices(snapshots: Iterable[Snapshot], company_id: str, threshold_p
     for item in latest_by_device(snapshots, company_id):
         for volume in item.disk_volumes:
             size, available = volume.get("size_bytes"), volume.get("available_bytes")
-            if not isinstance(size, (int, float)) or size <= 0 or not isinstance(available, (int, float)):
+            if (not isinstance(size, (int, float)) or not isfinite(size) or size <= 0
+                    or not isinstance(available, (int, float)) or not isfinite(available)
+                    or available < 0 or available > size):
                 continue
             free_pct = available / size * 100
             if free_pct <= threshold_pct:
