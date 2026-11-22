@@ -1,0 +1,13 @@
+[project]
+name = "rayda-fleet-copilot"
+version = "0.2.0"
+description = "Grounded agentic AI fleet copilot assessment project"
+requires-python = ">=3.11"
+
+[project.scripts]
+fleet-copilot = "fleet_copilot.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+agent = ["langgraph>=0.2", "langchain-core>=0.3"]
+demo = ["streamlit>=1.35"]
