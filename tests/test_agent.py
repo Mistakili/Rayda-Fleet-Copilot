@@ -43,5 +43,16 @@ def test_agent_rejects_invalid_step_bound():
         FleetAgent([], max_steps=0)
 
 
-def test_regression_evaluations_pass():
-    assert all(x["passed"] for x in run_evaluations(DATA))
+def test_regression_evaluations_pass_with_expected_counts_and_isolation():
+    results = run_evaluations(DATA)
+    assert len(results) == 4
+    assert all(result["passed"] for result in results)
+    assert [result["actual_count"] for result in results] == [2, 6, 0, 1]
+    assert all(result["tenant_violations"] == 0 for result in results)
+    assert all(all(result["checks"].values()) for result in results)
+
+
+def test_regression_evaluation_exposes_each_failed_check():
+    results = run_evaluations(DATA)
+    assert all("checks" in result for result in results)
+    assert all("expected_count" in result and "actual_count" in result for result in results)
