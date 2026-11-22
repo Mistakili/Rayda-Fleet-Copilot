@@ -79,3 +79,31 @@ def test_battery_trend_ignores_non_finite_capacity_values():
     assert len(findings) == 1
     assert findings[0]["trend"]["observations"] == 2
     assert findings[0]["trend"]["change"] == -20
+
+
+def test_all_insights_include_transparent_evidence_quality_metadata():
+    rows = [
+        Snapshot("dev-4", "acme-001", "emp-4", f"2026-06-{day:02d}T00:00:00Z", {
+            "memory": {"total_memory_bytes": 100, "used_memory_bytes": 95},
+        })
+        for day in range(1, 11)
+    ]
+    findings = all_insights(rows, "acme-001")
+    assert len(findings) == 1
+    quality = findings[0]["evidence_quality"]
+    assert quality["valid_observations"] == 10
+    assert quality["dated_evidence_points"] == 10
+    assert quality["dated_evidence_span_days"] == 9.0
+    assert quality["level"] == "strong"
+    assert "not a probability" in quality["method"]
+
+
+def test_limited_observations_are_not_described_as_strong_evidence():
+    rows = [
+        Snapshot("dev-5", "acme-001", "emp-5", f"2026-06-{day:02d}T00:00:00Z", {
+            "memory": {"total_memory_bytes": 100, "used_memory_bytes": 95},
+        })
+        for day in range(1, 4)
+    ]
+    findings = all_insights(rows, "acme-001")
+    assert findings[0]["evidence_quality"]["level"] == "limited"
