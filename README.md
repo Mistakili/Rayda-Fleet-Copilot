@@ -16,7 +16,9 @@ A tenant-scoped fleet intelligence prototype built against the supplied NDJSON t
 The core agent is deliberately deterministic and LLM-independent so it is reproducible without an API key. It demonstrates planning, tool selection, bounded execution and traceability. A model-backed planner can be added behind the same interface, but the model must never choose or override the authenticated tenant. Action execution is simulated; no real procurement, ticketing or messaging integrations are present.
 
 ## Dataset
-Put `device-telemetry-dataset.ndjson` in `data/`. The supplied file is included. Dataset profile: 750 snapshots, 25 devices, 3 companies, 14 employees and 30 snapshots per device. Missing telemetry is unknown, not failure.
+Place the assessment file at `data/device-telemetry-dataset.ndjson`. The original dataset is 750 snapshots across 25 devices, 3 companies and 14 employees, with 30 snapshots per device. Missing telemetry is unknown, not failure.
+
+**Repository note:** the source code and tests are committed. The 1.38 MB assessment dataset is not yet present in this GitHub repository and must be added at the path above before running the tests or demo.
 
 ## Setup
 Python 3.11+ recommended.
@@ -24,7 +26,7 @@ Python 3.11+ recommended.
 ```bash
 python -m venv .venv
 # Windows PowerShell
-.venv\\Scripts\\Activate.ps1
+.venv\Scripts\Activate.ps1
 # macOS/Linux
 source .venv/bin/activate
 pip install -e ".[test,demo]"
