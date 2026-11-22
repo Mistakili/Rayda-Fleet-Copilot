@@ -38,6 +38,7 @@ pip install -e ".[test,demo]"
 fleet-copilot --data data/device-telemetry-dataset.ndjson profile
 fleet-copilot --data data/device-telemetry-dataset.ndjson quality
 fleet-copilot --data data/device-telemetry-dataset.ndjson quality --company acme-001
+fleet-copilot --data data/device-telemetry-dataset.ndjson attention --company acme-001
 fleet-copilot --data data/device-telemetry-dataset.ndjson ask --company acme-001 "Which devices have low disk space?"
 fleet-copilot --data data/device-telemetry-dataset.ndjson eval
 streamlit run app.py
@@ -49,6 +50,7 @@ Alternatively, run commands with `python -m fleet_copilot.cli` from the project 
 - `data.py`: strict parsing, tenant-scoped deterministic queries and telemetry quality reporting
 - `insights.py`: historical trend detection and evidence
 - `risk.py`: deterministic device attention ranking and per-device assessment coverage
+- `cli.py`: reproducible profile, quality, attention, ask and evaluation commands
 - `actions.py`: proposal/approval/audit store; simulated side effects only
 - `agent.py`: explicit plan → tool call → observation loop with a hard step bound
 - `evals.py`: small deterministic regression checks
