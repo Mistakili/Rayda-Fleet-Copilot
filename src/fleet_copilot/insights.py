@@ -35,7 +35,8 @@ def battery_insights(snapshots: Iterable[Snapshot], company_id: str, capacity_dr
     findings=[]
     for device_id, history in _series(snapshots, company_id).items():
         values=[(s,float(s.battery["full_charge_capacity"])) for s in history if s.battery and
-            isinstance(s.battery.get("full_charge_capacity"),(int,float)) and s.battery["full_charge_capacity"]>0]
+            isinstance(s.battery.get("full_charge_capacity"),(int,float)) and
+            isfinite(s.battery["full_charge_capacity"]) and s.battery["full_charge_capacity"]>0]
         if len(values)<2: continue
         first,last=values[0][1],values[-1][1]; decline=(first-last)/first*100
         if decline>=capacity_drop_pct:
