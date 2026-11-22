@@ -71,8 +71,14 @@ class ActionStore:
         if not isinstance(payload, dict) or not payload:
             raise ActionError("Action payload must be a non-empty object")
         for item in evidence:
-            if not isinstance(item, dict) or not item.get("device_id") or not item.get("collected_at"):
-                raise ActionError("Evidence must include device_id and collected_at provenance")
+            if (not isinstance(item, dict) or not item.get("device_id")
+                    or not item.get("collected_at") or not item.get("company_id")):
+                raise ActionError("Evidence must include company_id, device_id and collected_at provenance")
+            if item["company_id"] != authenticated_company_id:
+                raise ActionError("Evidence belongs to a different company")
+        target_device = payload.get("target_device_id") or payload.get("device_id")
+        if target_device and any(item["device_id"] != target_device for item in evidence):
+            raise ActionError("Evidence device does not match the action target")
         proposal_id, now = str(uuid.uuid4()), _now()
         payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         evidence_json = json.dumps(evidence, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
