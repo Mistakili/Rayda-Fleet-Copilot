@@ -96,8 +96,28 @@ st.markdown("""
   [data-testid="stButton"] button:hover, [data-testid="stFormSubmitButton"] button:hover {
     background:#2e70ad; border-color:#79b7ef; color:#fff !important;
   }
-  [data-testid="stAlert"] { background:#17243a; color:#e5edf8; border:1px solid #405875; }
-  [data-testid="stAlert"] p, [data-testid="stAlert"] span { color:#e5edf8 !important; }
+  [data-testid="stAlert"], [data-baseweb="notification"] {
+    background:#17243a !important; color:#e5edf8 !important; border:1px solid #405875 !important;
+  }
+  [data-testid="stAlert"] p, [data-testid="stAlert"] span,
+  [data-baseweb="notification"] p, [data-baseweb="notification"] span { color:#e5edf8 !important; }
+  [data-testid="stAlert"] svg, [data-baseweb="notification"] svg { fill:currentColor; }
+  .dataset-status {
+    display:flex; align-items:center; gap:.65rem; background:#172b3b;
+    border:1px solid #2d6170; color:#c7f2e8; padding:.8rem .9rem;
+    border-radius:10px; font-size:.88rem; font-weight:600;
+  }
+  .dataset-status .status-dot {
+    width:.55rem; height:.55rem; flex:0 0 .55rem; border-radius:50%;
+    background:#45c6a5; box-shadow:0 0 0 3px #45c6a522;
+  }
+  [data-testid="stDataFrame"] *, [data-testid="stTable"] * { color-scheme:dark; }
+  [data-testid="stDataFrame"] iframe { background:#111d30 !important; }
+  [data-testid="stCode"], pre, code {
+    background:#101c2e !important; color:#d8e8fa !important; border-color:#2b405d !important;
+  }
+  [data-testid="stSelectbox"] [data-baseweb="select"] *,
+  [data-testid="stMultiSelect"] [data-baseweb="select"] * { color:#f3f7fc !important; }
   hr { border-color:#2b405d !important; }
   [data-testid="stSidebar"] [data-testid="stAlert"] { background:#17243a; }
   [data-testid="stSidebar"] [data-testid="stAlert"] p,
@@ -139,7 +159,7 @@ with st.sidebar:
     st.markdown("Fleet overview  ·  Copilot  ·  Insights  ·  Actions")
     st.divider()
     st.caption("DATASET STATUS")
-    st.success(f"{profile['snapshots']:,} telemetry records loaded")
+    st.markdown(f'<div class="dataset-status"><span class="status-dot"></span>{profile["snapshots"]:,} telemetry records loaded</div>', unsafe_allow_html=True)
     st.caption(f"{profile['devices']} devices · {profile['companies']} companies")
     st.markdown('<div class="note">Assessment demo only. Tenant selector is not production authentication. All actions are simulated.</div>', unsafe_allow_html=True)
 
