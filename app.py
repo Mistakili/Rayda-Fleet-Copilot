@@ -13,6 +13,7 @@ import streamlit as st
 
 from fleet_copilot.actions import ActionError, ActionStore
 from fleet_copilot.agent import FleetAgent
+from fleet_copilot.llm_agent import OpenAIFleetAgent
 from fleet_copilot.data import (
     compliance_failures,
     dataset_profile,
@@ -255,27 +256,45 @@ with devices:
 
 with copilot:
     st.subheader("Ask the Fleet Copilot")
-    st.caption("The assessment agent uses a transparent deterministic planner and bounded tool loop. It does not call an external LLM.")
+    api_key_available=bool(os.getenv("OPENAI_API_KEY"))
+    engine=st.radio(
+        "Reasoning engine",
+        ["OpenAI hybrid","Deterministic"],
+        index=0 if api_key_available else 1,
+        horizontal=True,
+        disabled=not api_key_available,
+        help="OpenAI interprets the request and selects read-only deterministic tools. Actions remain in the separate approval center.",
+    )
+    if not api_key_available:
+        st.caption("OpenAI mode is disabled until OPENAI_API_KEY is set. Deterministic mode remains available.")
+    else:
+        st.caption("OpenAI handles intent, tool selection and evidence synthesis. Python tools retain tenant scope and perform all telemetry calculations.")
     prompt=st.text_area("Your question",placeholder="Which devices have low disk space? Are there persistent battery or RAM issues?",height=90)
     if st.button("Run investigation",type="primary",disabled=not prompt.strip(),key="run_copilot"):
-        state=FleetAgent(snapshots).invoke(prompt,company)
-        st.session_state["last_agent_state"]={
-            "company_id":company,
-            "answer":state.answer,"plan":state.plan,"steps":state.steps,"observations":state.observations
-        }
+        try:
+            agent=OpenAIFleetAgent(snapshots) if engine=="OpenAI hybrid" else FleetAgent(snapshots)
+            state=agent.invoke(prompt,company)
+            st.session_state["last_agent_state"]={
+                "company_id":company,
+                "engine":engine,
+                "answer":state.answer,"plan":state.plan,"steps":state.steps,"observations":state.observations
+            }
+        except Exception as exc:
+            st.error(f"Investigation failed: {exc}")
     result=st.session_state.get("last_agent_state")
     if result and result.get("company_id") == company:
+        st.caption(f"Engine: {result.get('engine','Deterministic')}")
         st.markdown("#### Investigation summary")
         st.info(result["answer"])
         st.markdown("#### Evidence returned")
         for observation in result["observations"]:
             with st.expander(f"{observation['tool']} · {observation['count']} finding(s)",expanded=True):
-                if observation["results"]:
+                if observation.get("results"):
                     st.dataframe(pd.json_normalize(observation["results"]),use_container_width=True,hide_index=True)
                 else:
-                    st.caption("No matching records found.")
+                    st.caption(observation.get("error","No matching records found."))
         with st.expander("Agent plan and execution trace"):
-            st.write("Planned tools:",result["plan"])
+            st.write("Selected tools:",result["plan"])
             st.json(result["steps"])
     else:
         st.info("Start with a question about disk space, compliance, battery health, RAM, storage or historical trends.")
