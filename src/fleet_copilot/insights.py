@@ -66,6 +66,7 @@ def memory_insights(snapshots: Iterable[Snapshot], company_id: str, high_utiliza
                 "explanation":"Persistence is measured across available snapshots; this indicates sustained high utilization, not proven user-perceived slowness.",
                 "device_id":device_id,"company_id":company_id,"observations":len(values),"high_observations":len(high),
                 "average_utilization_pct":round(mean(p for _,p in values),2),
+                "trend":_metric_trend(values,"ram_utilization_pct"),
                 "evidence":[{**_base(s),"ram_utilization_pct":round(p,2)} for s,p in high]})
     return findings
 
