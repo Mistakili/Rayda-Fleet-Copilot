@@ -89,7 +89,8 @@ def test_openai_agent_enforces_tool_call_bound():
     assert client.calls[-1]["tool_choice"] == "none"
 
 
-def test_openai_agent_requires_authenticated_tenant_and_api_key():
+def test_openai_agent_requires_authenticated_tenant_and_api_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     with pytest.raises(ValueError, match="Authenticated company"):
         OpenAIFleetAgent([], client=FakeClient([])).invoke("disk", "")
     with pytest.raises(ValueError, match="OPENAI_API_KEY"):
