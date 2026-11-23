@@ -125,6 +125,23 @@ class FleetAgent:
         return state
 
 
+def _recommended_next_step(finding_type: str, finding: dict[str, Any]) -> str:
+    """Suggest a bounded review step based only on the detected finding type."""
+    if finding_type == "persistent ram pressure":
+        return "Review the device's running processes and workload around the high-utilisation snapshots before considering remediation."
+    if finding_type == "battery capacity decline":
+        return "Review battery health and charging history before deciding whether the device needs service or replacement."
+    if finding_type == "persistent low storage":
+        return "Review the largest storage consumers and available cleanup options before approving a storage remediation."
+    if finding_type == "compliance drift":
+        return "Inspect the affected compliance check and its transition timestamps, then verify the device's current configuration."
+    if finding_type == "low disk":
+        return "Review the affected volume and storage consumers before approving a cleanup or remediation action."
+    if finding_type == "compliance failure":
+        return "Inspect the failed control and confirm the device's current configuration before opening a remediation action."
+    return "Review the source evidence and current device state before taking action."
+
+
 def _summarize_investigation(
     question: str, company_id: str, observations: list[dict[str, Any]]
 ) -> str:
@@ -151,6 +168,9 @@ def _summarize_investigation(
         finding_type = item.get("type", tool).replace("_", " ")
         detail = item.get("finding") or item.get("explanation") or "A configured fleet indicator was detected."
         line = f"{prefix}{detail}"
+        severity = item.get("severity")
+        if severity:
+            line += f" Priority: {str(severity).replace('_', ' ')}."
 
         trend = item.get("trend")
         if trend and isinstance(trend.get("change"), (int, float)):
@@ -183,6 +203,9 @@ def _summarize_investigation(
         quality = item.get("evidence_quality", {})
         if quality.get("level"):
             line += f" Evidence volume: {quality['level']} ({quality.get('valid_observations', 'n/a')} valid observations)."
+        next_step = _recommended_next_step(finding_type, item)
+        if next_step:
+            line += f" Suggested next step: {next_step}"
         lines.append(line)
 
     if len(findings) > 6:
