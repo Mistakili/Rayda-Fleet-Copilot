@@ -27,7 +27,7 @@ TOOL_DEFINITIONS = [
         "function": {
             "name": name,
             "description": description,
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+            "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
             "strict": True,
         },
     }
@@ -93,7 +93,9 @@ class OpenAIFleetAgent:
         ]
         executed = 0
 
-        while True:
+        # Bound model round-trips as well as successful tool executions. Invalid or
+        # repeated tool requests must never create an unbounded agent loop.
+        for round_index in range(self.max_steps + 1):
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -105,6 +107,9 @@ class OpenAIFleetAgent:
             calls = message.tool_calls or []
             if not calls:
                 state.answer = message.content or "I could not produce a grounded answer from the available evidence."
+                return state
+            if round_index >= self.max_steps:
+                state.answer = "The investigation reached its tool-call limit before a final response was produced. Please narrow the question."
                 return state
 
             messages.append(message.model_dump(exclude_none=True))
@@ -137,3 +142,6 @@ class OpenAIFleetAgent:
                     "tool_call_id": call.id,
                     "content": json.dumps(result, default=str),
                 })
+
+        state.answer = "The investigation stopped at its configured tool-call limit."
+        return state
