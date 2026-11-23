@@ -23,7 +23,7 @@ Alternatively, set `FLEET_DATA_PATH` to its location. The CLI accepts an explici
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-python -m pip install -e ".[test,demo]"
+python -m pip install -e ".[test,demo,openai]"
 ```
 
 ### macOS / Linux
@@ -73,10 +73,10 @@ streamlit run app.py
 
 The sidebar tenant selector is a local demo control. It is not production authentication.
 
-## 5. Suggested walkthrough
+## 5. Configure and demonstrate OpenAI hybrid mode (optional)\n\nOpenAI API access is separate from a ChatGPT subscription. In PowerShell, set the key only in the current local terminal session:\n\n```powershell\n$env:OPENAI_API_KEY = "your-api-key"\n$env:OPENAI_MODEL = "gpt-4o-mini"  # optional\nstreamlit run app.py\n```\n\nThe Fleet Copilot tab then offers **OpenAI hybrid** and **Deterministic** reasoning modes. The OpenAI mode lets the model interpret the request, choose among six read-only tools, and summarize their returned evidence. Tenant scope is still supplied by the app; tools perform all telemetry calculations. If no API key is set, the deterministic mode remains usable.\n\n## 6. Suggested walkthrough
 
 1. **Fleet overview:** select `acme-001` and review the device count, compliance indicators and attention queue.
-2. **Grounded copilot query:** ask, "Which devices have low disk space?" Inspect the selected plan, tool result and returned evidence.
+2. **Grounded copilot query:** select OpenAI hybrid (if configured) and ask, "Which devices are at greatest operational risk, and what should we investigate first?" Inspect the model-selected tools, returned evidence, and synthesized answer. Repeat in Deterministic mode to show the reproducible fallback. The model may recommend a next step but cannot create or execute an action.
 3. **Historical insights:** review battery, RAM, storage and compliance-drift findings. Distinguish historical observations from the latest device snapshot.
 4. **Attention ranking:** open a high-attention device and explain which current and historical findings contributed to its score. The score is a transparent prototype triage heuristic, not a calibrated probability or Rayda-approved policy.
 5. **Action proposal:** open the action approval center, choose a device and action, enter a reason, and create a pending proposal. Expand **Review attached source evidence** to inspect the exact source telemetry snapshot bound to that proposal.
@@ -85,7 +85,7 @@ The sidebar tenant selector is a local demo control. It is not production authen
 
 The four action types are `create_upgrade_order`, `open_remediation_ticket`, `flag_device_for_replacement` and `notify_employee`. All execution is simulated locally. No external procurement, ticketing, messaging or device-management system is contacted.
 
-## 6. Action-store reset between demos
+## 7. Action-store reset between demos
 
 The dashboard stores action proposals and audit events in `fleet_actions.sqlite` by default. Stop Streamlit before resetting the demo history.
 
@@ -105,10 +105,10 @@ rm -f fleet_actions.sqlite fleet_actions.sqlite-shm fleet_actions.sqlite-wal
 
 If `FLEET_ACTION_DB` is set, reset that configured database instead.
 
-## 7. Architecture and limitations to state clearly
+## 8. Architecture and limitations to state clearly
 
-- The current planner and tools are deterministic and LLM-independent. This prototype demonstrates bounded planning, tool selection, execution traces and grounded observations; it does not claim model-backed reasoning.
-- Company scope is passed from trusted application context into the tools. The model does not choose the tenant.
+- OpenAI hybrid mode is model-backed for intent interpretation, tool selection and answer synthesis. The deterministic mode remains available as fallback. Both use the same deterministic telemetry tools and bounded execution. The LLM is not the source of fleet facts.
+- Company scope is passed from trusted application context into the tools. Tool schemas have no tenant argument; the model does not choose the tenant.\n- The OpenAI agent allows only six read-only tools, rejects unknown tool names and non-empty arguments, and enforces a hard bound on tool executions and model round-trips. It has no action-execution tool.
 - Missing telemetry is unknown, not a failure. Invalid measurements are excluded from relevant calculations and coverage.
 - The attention score is an illustrative heuristic for human triage, not a calibrated risk probability, causal diagnosis or Rayda policy.
 - The UI's tenant selector and typed approver identity/role are demo inputs, not production authentication or verified RBAC.
@@ -116,7 +116,7 @@ If `FLEET_ACTION_DB` is set, reset that configured database instead.
 - SQLite is used for a self-contained assessment prototype. A production deployment would need authenticated service boundaries, verified authorization, managed persistence, operational monitoring and real integrations.
 - The four evaluation cases are a focused regression benchmark, not comprehensive proof of production security or model quality.
 
-## 8. Final submission checklist
+## 9. Final submission checklist
 
 - [ ] Confirm the supplied NDJSON file is available at the configured path.
 - [ ] Run the profile and telemetry quality commands.
