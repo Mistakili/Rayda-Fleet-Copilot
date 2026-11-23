@@ -118,3 +118,22 @@ def test_investigation_summary_does_not_claim_trend_without_trend_evidence():
     state = agent.invoke("Is memory pressure getting worse over time?", "acme-001")
     assert "Persistence is confirmed" in state.answer
     assert "not contain enough trend data" in state.answer
+
+
+def test_summary_adds_priority_and_grounded_operational_next_step():
+    class FakeTools:
+        def execute(self, name, company_id):
+            return {"tool": name, "company_id": company_id, "count": 1, "results": [{
+                "type": "persistent_ram_pressure", "severity": "review",
+                "device_id": "dev-1",
+                "finding": "RAM utilization was at least 85% in 30/30 valid snapshots (100.0%).",
+                "trend": {"metric": "ram_utilization_pct", "start_value": 90.0,
+                          "end_value": 96.0, "change": 6.0, "observations": 30},
+            }]}
+
+    agent = FleetAgent([])
+    agent.tools = FakeTools()
+    state = agent.invoke("Review persistent memory pressure", "acme-001")
+    assert "Priority: review" in state.answer
+    assert "running processes and workload" in state.answer
+    assert "before considering remediation" in state.answer
