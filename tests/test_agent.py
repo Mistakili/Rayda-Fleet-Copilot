@@ -56,3 +56,30 @@ def test_regression_evaluation_exposes_each_failed_check():
     results = run_evaluations(DATA)
     assert all("checks" in result for result in results)
     assert all("expected_count" in result and "actual_count" in result for result in results)
+
+
+
+def test_llm_planner_uses_allowlisted_plan_and_marks_mode():
+    class FakePlanner:
+        def plan(self, question, max_steps):
+            return ["low_disk", "compliance_failures", "low_disk", "not_a_tool"]
+
+    # Invalid model tool names force deterministic fallback rather than execution.
+    agent = FleetAgent(load_snapshots(DATA), planner=FakePlanner())
+    state = agent.invoke("Which devices have low disk space?", "acme-001")
+    assert state.planner_mode == "deterministic_fallback"
+    assert state.planner_error
+    assert state.plan == ["low_disk"]
+    assert all(item["company_id"] == "acme-001" for item in state.observations)
+
+
+def test_llm_planner_accepts_valid_bounded_plan():
+    class FakePlanner:
+        def plan(self, question, max_steps):
+            return ["compliance_failures", "low_disk", "ram_trends"]
+
+    state = FleetAgent(load_snapshots(DATA), max_steps=2, planner=FakePlanner()).invoke(
+        "Check compliance and disk", "acme-001"
+    )
+    assert state.planner_mode == "llm"
+    assert state.plan == ["compliance_failures", "low_disk"]
