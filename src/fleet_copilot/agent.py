@@ -188,4 +188,4 @@ def _summarize_investigation(
     if len(findings) > 6:
         lines.append(f"{len(findings) - 6} additional finding(s) are available in the evidence tables.")
     lines.append("Assessment is based on the selected company's available telemetry; missing measurements are not treated as failures. Review source evidence before taking action.")
-    return "\\n\\n".join(lines)
+    return "\n\n".join(lines)
