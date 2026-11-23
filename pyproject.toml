@@ -11,3 +11,4 @@ fleet-copilot = "fleet_copilot.cli:main"
 test = ["pytest>=8.0"]
 agent = ["langgraph>=0.2", "langchain-core>=0.3"]
 demo = ["streamlit>=1.35"]
+llm = ["openai>=1.40"]
