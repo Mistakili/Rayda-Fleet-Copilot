@@ -107,3 +107,17 @@ def test_limited_observations_are_not_described_as_strong_evidence():
     ]
     findings = all_insights(rows, "acme-001")
     assert findings[0]["evidence_quality"]["level"] == "limited"
+
+
+def test_memory_insight_includes_start_to_end_trend():
+    rows = [
+        Snapshot("dev-trend", "acme-001", "emp-trend", f"2026-06-{day:02d}T00:00:00Z", {
+            "memory": {"total_memory_bytes": 100, "used_memory_bytes": used},
+        })
+        for day, used in [(1, 86), (2, 88), (3, 94), (4, 96)]
+    ]
+    finding = memory_insights(rows, "acme-001")[0]
+    assert finding["trend"]["start_value"] == 86
+    assert finding["trend"]["end_value"] == 96
+    assert finding["trend"]["change"] == 10
+    assert finding["trend"]["observations"] == 4
