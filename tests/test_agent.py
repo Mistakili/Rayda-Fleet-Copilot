@@ -83,3 +83,38 @@ def test_llm_planner_accepts_valid_bounded_plan():
     )
     assert state.planner_mode == "llm"
     assert state.plan == ["compliance_failures", "low_disk"]
+
+
+def test_investigation_summary_explains_ram_persistence_and_direction():
+    class FakeTools:
+        def execute(self, name, company_id):
+            return {"tool": name, "company_id": company_id, "count": 1, "results": [{
+                "type": "persistent_ram_pressure", "device_id": "dev-1",
+                "finding": "RAM utilization was at least 85% in 30/30 valid snapshots (100.0%).",
+                "trend": {"metric": "ram_utilization_pct", "start_value": 86.0,
+                          "end_value": 94.0, "change": 8.0, "observations": 30},
+                "evidence_quality": {"level": "strong", "valid_observations": 30},
+            }]}
+
+    agent = FleetAgent([])
+    agent.tools = FakeTools()
+    state = agent.invoke("Is persistent memory pressure getting worse over time?", "acme-001")
+    assert "30/30 valid snapshots" in state.answer
+    assert "increased from 86.0 to 94.0" in state.answer
+    assert "worsening start-to-end RAM utilisation trend" in state.answer
+    assert "strong" in state.answer
+
+
+def test_investigation_summary_does_not_claim_trend_without_trend_evidence():
+    class FakeTools:
+        def execute(self, name, company_id):
+            return {"tool": name, "company_id": company_id, "count": 1, "results": [{
+                "type": "persistent_ram_pressure", "device_id": "dev-1",
+                "finding": "RAM utilization was at least 85% in 30/30 valid snapshots (100.0%).",
+            }]}
+
+    agent = FleetAgent([])
+    agent.tools = FakeTools()
+    state = agent.invoke("Is memory pressure getting worse over time?", "acme-001")
+    assert "Persistence is confirmed" in state.answer
+    assert "not contain enough trend data" in state.answer
