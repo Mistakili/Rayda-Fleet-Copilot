@@ -14,7 +14,7 @@ A tenant-scoped fleet intelligence prototype built against the supplied NDJSON t
 - Optional Streamlit demonstration UI
 
 ## Important implementation boundary
-The core agent is deliberately deterministic and LLM-independent so it is reproducible without an API key. It demonstrates planning, tool selection, bounded execution and traceability. A model-backed planner can be added behind the same interface, but the model must never choose or override the authenticated tenant. Action execution is simulated; no real procurement, ticketing or messaging integrations are present.
+The agent supports both a deterministic planner and an optional OpenAI-backed planner. The LLM selects from a fixed allowlist of read-only tools; Python validates the plan, enforces the configured step bound, supplies the selected tenant context to every tool, and executes the tools. The model never chooses or overrides tenant scope and cannot approve or execute actions. If the model call fails or returns an invalid plan, the deterministic planner is used. Action execution remains simulated; no real procurement, ticketing or messaging integrations are present.
 
 ## Dataset
 Place the assessment file at `data/device-telemetry-dataset.ndjson`. The original dataset is 750 snapshots across 25 devices, 3 companies and 14 employees, with 30 snapshots per device. Missing telemetry is unknown, not failure.
@@ -30,7 +30,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 # macOS/Linux
 source .venv/bin/activate
-pip install -e ".[test,demo]"
+pip install -e ".[test,demo,llm]"
 ```
 
 ## Run
@@ -46,13 +46,30 @@ streamlit run app.py
 
 Alternatively, run commands with `python -m fleet_copilot.cli` from the project root after installing editable.
 
+## Optional LLM planner
+
+Install the optional dependency with `pip install -e ".[llm,demo]" `. Set the API key in your local shell; never commit it or put it in source code.
+
+Windows PowerShell:
+
+```powershell
+$env:OPENAI_API_KEY="your-key"
+$env:OPENAI_MODEL="gpt-4o-mini"
+streamlit run app.py
+```
+
+The Fleet Copilot tab has a **Use OpenAI LLM planner** toggle. The default model is `gpt-4o-mini`; `OPENAI_MODEL` can override it. The LLM returns structured tool names only. The application validates every name against the allowlist, deduplicates and caps the plan, and passes the selected tenant from application context to deterministic Python tools. Model output is never treated as evidence. If the API is unavailable or its response is invalid, the deterministic planner runs instead. The UI reports which planner mode was used.
+
+The model is used for planning/tool selection, not for generating unsupported fleet facts. Tool observations remain the source of truth, and all action operations remain local simulations requiring the existing approval workflow.
+
 ## Architecture
 - `data.py`: strict parsing, tenant-scoped deterministic queries and telemetry quality reporting
 - `insights.py`: historical trend detection and evidence
 - `risk.py`: deterministic device attention ranking and per-device assessment coverage
 - `cli.py`: reproducible profile, quality, attention, ask and evaluation commands
 - `actions.py`: proposal/approval/audit store; simulated side effects only
-- `agent.py`: explicit plan → tool call → observation loop with a hard step bound
+- `agent.py`: bounded plan → tool call → observation loop, deterministic fallback and tenant-scoped execution
+- `llm_planner.py`: optional structured OpenAI tool planner with a strict allowlist
 - `evals.py`: small deterministic regression checks
 - `app.py`: optional Streamlit demonstration
 
@@ -73,8 +90,8 @@ The agent calls deterministic tools. Tool results include company IDs, device ID
 Run `fleet-copilot --data data/device-telemetry-dataset.ndjson eval`. The four baseline cases check planner intent, dataset-grounded result counts (2 low-disk findings for Acme, 6 latest compliance failures for Globex, 0 battery-decline findings for Initech, and 1 persistent-RAM finding for Acme), and tenant IDs throughout nested result evidence. These exact counts are regression baselines for the supplied dataset, not universal fleet expectations; review the evidence before updating them if the dataset changes. The suite remains a focused starter benchmark, not proof of production security or comprehensive model quality.
 
 ## Design trade-offs
-- Deterministic core over opaque free-form model reasoning for reliable reproducibility.
-- Rule-based planning is intentionally transparent; an LLM planner can be added after tool contracts and evaluation are stable.
+- Deterministic Python tools and evaluation remain the source of truth; optional LLM planning improves natural-language tool selection.
+- LLM planning is optional and bounded; deterministic planning remains the offline fallback.
 - SQLite keeps the assessment self-contained; production would use authenticated service boundaries and a managed database.
 - Thresholds in trend detection are configurable examples, not Rayda policy.
 
