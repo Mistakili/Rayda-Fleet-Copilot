@@ -119,15 +119,73 @@ class FleetAgent:
                 "observation_count": observation["count"],
             })
 
-        total = sum(x["count"] for x in state.observations)
-        sections = [
-            f'{obs["tool"]}: {obs["count"]} finding(s)'
-            for obs in state.observations
-        ]
-        state.answer = (
-            f"I checked company {authenticated_company_id} using {len(state.steps)} tool call(s). "
-            f"{total} result(s) returned. " + "; ".join(sections) +
-            ". Results are scoped to the selected company context. "
-            "Review the evidence records before taking action."
+        state.answer = _summarize_investigation(
+            question, authenticated_company_id, state.observations
         )
         return state
+
+
+def _summarize_investigation(
+    question: str, company_id: str, observations: list[dict[str, Any]]
+) -> str:
+    """Turn deterministic tool evidence into a concise, question-aware summary."""
+    findings = [
+        (observation["tool"], finding)
+        for observation in observations
+        for finding in observation.get("results", [])
+    ]
+    if not findings:
+        checked = ", ".join(obs["tool"].replace("_", " ") for obs in observations) or "no tools"
+        return (
+            f"No matching findings were returned for {company_id}. "
+            f"Investigation checked {checked}. This means no configured detector crossed "
+            "its current threshold; it is not proof that every device is healthy."
+        )
+
+    lines = [f"{len(findings)} finding(s) across {len({item.get('device_id') for _, item in findings if item.get('device_id')})} device(s) for {company_id}."]
+    asks_about_trend = any(word in question.lower() for word in ("trend", "worse", "worsening", "improving", "over time", "history", "historical"))
+
+    for tool, item in findings[:6]:
+        device = item.get("device_id")
+        prefix = f"{device}: " if device else ""
+        finding_type = item.get("type", tool).replace("_", " ")
+        detail = item.get("finding") or item.get("explanation") or "A configured fleet indicator was detected."
+        line = f"{prefix}{detail}"
+
+        trend = item.get("trend")
+        if trend and isinstance(trend.get("change"), (int, float)):
+            change = float(trend["change"])
+            metric = str(trend.get("metric", "metric")).replace("_", " ")
+            start = trend.get("start_value")
+            end = trend.get("end_value")
+            observations_count = trend.get("observations", "available")
+            unit = " percentage points" if metric == "ram utilization pct" else ""
+            if abs(change) < 3:
+                direction = "remained broadly stable"
+            elif change > 0:
+                direction = "increased"
+            else:
+                direction = "decreased"
+            line += (
+                f" Start-to-end {metric} {direction} from {start} to {end}"
+                f" ({change:+.2f}{unit}) across {observations_count} valid observations."
+            )
+            if asks_about_trend and metric == "ram utilization pct":
+                if change > 3:
+                    line += " This indicates a worsening start-to-end RAM utilisation trend."
+                elif change < -3:
+                    line += " This indicates an improving start-to-end RAM utilisation trend."
+                else:
+                    line += " The readings do not show a material start-to-end increase."
+        elif asks_about_trend and finding_type == "persistent ram pressure":
+            line += " Persistence is confirmed, but this result does not contain enough trend data to determine whether utilisation is worsening."
+
+        quality = item.get("evidence_quality", {})
+        if quality.get("level"):
+            line += f" Evidence volume: {quality['level']} ({quality.get('valid_observations', 'n/a')} valid observations)."
+        lines.append(line)
+
+    if len(findings) > 6:
+        lines.append(f"{len(findings) - 6} additional finding(s) are available in the evidence tables.")
+    lines.append("Assessment is based on the selected company's available telemetry; missing measurements are not treated as failures. Review source evidence before taking action.")
+    return "\\n\\n".join(lines)
