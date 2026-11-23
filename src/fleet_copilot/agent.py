@@ -89,7 +89,7 @@ class FleetAgent:
         state.answer = (
             f"I checked company {authenticated_company_id} using {len(state.steps)} tool call(s). "
             f"{total} result(s) returned. " + "; ".join(sections) +
-            ". Results are scoped to the authenticated company. "
+            ". Results are scoped to the selected company context. "
             "Review the evidence records before taking action."
         )
         return state
