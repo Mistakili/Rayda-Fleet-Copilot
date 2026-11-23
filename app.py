@@ -13,6 +13,7 @@ import streamlit as st
 
 from fleet_copilot.actions import ActionError, ActionStore
 from fleet_copilot.agent import FleetAgent
+from fleet_copilot.llm_planner import OpenAIPlanner
 from fleet_copilot.data import (
     compliance_failures,
     dataset_profile,
@@ -255,18 +256,30 @@ with devices:
 
 with copilot:
     st.subheader("Ask the Fleet Copilot")
-    st.caption("The assessment agent uses a transparent deterministic planner and bounded tool loop. It does not call an external LLM.")
+    llm_enabled = st.toggle("Use OpenAI LLM planner", value=False, help="The model selects from an allowlist of read-only fleet tools. Python enforces tenant scope and executes every tool.")
+    api_key_available = bool(os.getenv("OPENAI_API_KEY"))
+    if llm_enabled and api_key_available:
+        st.caption(f"LLM planning enabled · {os.getenv('OPENAI_MODEL', 'gpt-4o-mini')}")
+    elif llm_enabled:
+        st.warning("OPENAI_API_KEY is not configured in this terminal. The deterministic planner will be used.")
+    else:
+        st.caption("Deterministic planner selected. Enable the optional OpenAI planner to use model-based tool selection.")
     prompt=st.text_area("Your question",placeholder="Which devices have low disk space? Are there persistent battery or RAM issues?",height=90)
     if st.button("Run investigation",type="primary",disabled=not prompt.strip(),key="run_copilot"):
-        state=FleetAgent(snapshots).invoke(prompt,company)
+        planner = OpenAIPlanner() if llm_enabled and api_key_available else None
+        state=FleetAgent(snapshots, planner=planner).invoke(prompt,company)
         st.session_state["last_agent_state"]={
             "company_id":company,
-            "answer":state.answer,"plan":state.plan,"steps":state.steps,"observations":state.observations
+            "answer":state.answer,"plan":state.plan,"steps":state.steps,"observations":state.observations,
+            "planner_mode":state.planner_mode,"planner_error":state.planner_error
         }
     result=st.session_state.get("last_agent_state")
     if result and result.get("company_id") == company:
         st.markdown("#### Investigation summary")
         st.info(result["answer"])
+        st.caption(f"Planner mode: {result.get('planner_mode', 'deterministic')}")
+        if result.get("planner_error"):
+            st.warning(f"LLM planner unavailable; deterministic fallback used. {result['planner_error']}")
         st.markdown("#### Evidence returned")
         for observation in result["observations"]:
             with st.expander(f"{observation['tool']} · {observation['count']} finding(s)",expanded=True):
@@ -357,4 +370,4 @@ with actions:
         st.caption("No audit events recorded yet.")
 
 st.divider()
-st.caption("Rayda Fleet Copilot · Assessment prototype · Deterministic agent · Simulated action execution")
+st.caption("Rayda Fleet Copilot · Assessment prototype · Bounded tool-using agent · Simulated action execution")
